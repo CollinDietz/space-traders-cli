@@ -15,11 +15,7 @@ struct Cli {
     command: Option<cli::Commands>,
 }
 
-use dirs::config_dir;
 use rpassword::prompt_password;
-use std::fs;
-use std::io::{self};
-use std::path::PathBuf;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
