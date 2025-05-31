@@ -4,6 +4,8 @@ use space_traders_sdk::{
     sdk::{login::RegistrationRequest, Sdk},
 };
 
+use crate::config::{Agent, Config};
+
 #[derive(Debug, Clone, ValueEnum)]
 #[clap(rename_all = "kebab_case")]
 pub enum FactionArg {
@@ -76,6 +78,8 @@ pub enum Commands {
         #[arg(short, long)]
         faction: FactionArg,
     },
+    /// List agents
+    ListAgents,
 }
 
 #[derive(Parser, Debug)]
@@ -85,7 +89,12 @@ pub struct ReplCli {
     pub command: Option<Commands>,
 }
 
-async fn handle_register(sdk: &Sdk, callsign: String, faction: FactionArg) {
+async fn handle_register(
+    sdk: &Sdk,
+    config: &mut Config,
+    callsign: String,
+    faction: FactionArg,
+) -> anyhow::Result<()> {
     let request: RegistrationRequest = RegistrationRequest {
         callsign: callsign.clone(),
         faction: Factions::from(faction),
@@ -94,14 +103,21 @@ async fn handle_register(sdk: &Sdk, callsign: String, faction: FactionArg) {
     match sdk.register(request).await {
         Ok(login_data) => {
             println!("{:?}", login_data);
+            config.agents.push(Agent {
+                id: login_data.agent.symbol.clone(),
+                token: login_data.token,
+            });
+            config.save()?;
+            Ok(())
         }
         Err(e) => {
             println!("Error: {:?}", e);
+            Err(e.into())
         }
     }
 }
 
-pub async fn handle_command(cmd: Commands, sdk: &Sdk) -> anyhow::Result<()> {
+pub async fn handle_command(cmd: Commands, sdk: &Sdk, config: &mut Config) -> anyhow::Result<()> {
     match cmd {
         Commands::GetSomething { id } => {
             let result = format!(r#"{{"status":"ok","id":"{}"}}"#, id);
@@ -112,7 +128,10 @@ pub async fn handle_command(cmd: Commands, sdk: &Sdk) -> anyhow::Result<()> {
             crate::utils::print_json_value(&result);
         }
         Commands::Register { callsign, faction } => {
-            handle_register(sdk, callsign, faction).await;
+            handle_register(sdk, config, callsign, faction).await?;
+        }
+        Commands::ListAgents => {
+            config.agents.iter().for_each(|f| println!("{}", f.id));
         }
     }
     Ok(())

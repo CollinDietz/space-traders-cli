@@ -7,6 +7,8 @@ use rustyline::{error::ReadlineError, Editor};
 use rustyline::{Context, Helper};
 use space_traders_sdk::sdk::Sdk;
 
+use crate::config::Config;
+
 const HISTORY_PATH: &str = ".mytool_history";
 
 pub struct ReplHelper {
@@ -47,7 +49,7 @@ impl Validator for ReplHelper {
 }
 impl Helper for ReplHelper {}
 
-pub async fn start(sdk: &Sdk) -> anyhow::Result<()> {
+pub async fn start(sdk: &Sdk, config: &mut Config) -> anyhow::Result<()> {
     let mut commands = crate::cli::ReplCli::command()
         .get_subcommands()
         .map(|sc| sc.get_name().to_string())
@@ -67,7 +69,7 @@ pub async fn start(sdk: &Sdk) -> anyhow::Result<()> {
         match readline {
             Ok(line) => {
                 let _ = rl.add_history_entry(line.as_str());
-                if let Err(e) = handle_input(sdk, line).await {
+                if let Err(e) = handle_input(sdk, config, line).await {
                     eprintln!("Error: {e}");
                 }
             }
@@ -80,7 +82,7 @@ pub async fn start(sdk: &Sdk) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn handle_input(sdk: &Sdk, line: String) -> anyhow::Result<()> {
+async fn handle_input(sdk: &Sdk, config: &mut Config, line: String) -> anyhow::Result<()> {
     let args = shell_words::split(&line)?;
     if args.is_empty() {
         return Ok(());
@@ -100,7 +102,7 @@ async fn handle_input(sdk: &Sdk, line: String) -> anyhow::Result<()> {
     ) {
         Ok(parsed) => {
             if let Some(cmd) = parsed.command {
-                crate::cli::handle_command(cmd, sdk).await?;
+                crate::cli::handle_command(cmd, sdk, config).await?;
             }
         }
         Err(e) => {
