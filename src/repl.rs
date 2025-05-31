@@ -49,7 +49,7 @@ pub async fn start() -> anyhow::Result<()> {
         println!("(No previous history)");
     }
 
-    println!("Welcome to the SDK REPL. Type 'help' or 'exit'.");
+    println!("Type 'help' or 'exit'.");
 
     loop {
         let readline = rl.readline(">> ");
