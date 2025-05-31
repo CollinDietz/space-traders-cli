@@ -17,6 +17,3 @@
 
 # MacOS
 .DS_Store
-
-# Other common ignores
-Cargo.lock
