@@ -13,11 +13,12 @@ struct Cli {
     command: Option<cli::Commands>,
 }
 
-fn main() -> anyhow::Result<()> {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     match cli.command {
-        Some(cmd) => cli::handle_command(cmd)?,
-        None => repl::start()?,
+        Some(cmd) => cli::handle_command(cmd).await?,
+        None => repl::start().await?,
     }
     Ok(())
 }

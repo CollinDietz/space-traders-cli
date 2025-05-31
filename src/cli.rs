@@ -19,7 +19,7 @@ pub struct ReplCli {
     pub command: Option<Commands>,
 }
 
-pub fn handle_command(cmd: Commands) -> anyhow::Result<()> {
+pub async fn handle_command(cmd: Commands) -> anyhow::Result<()> {
     match cmd {
         Commands::GetSomething { id } => {
             let result = format!(r#"{{"status":"ok","id":"{}"}}"#, id);

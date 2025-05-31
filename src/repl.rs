@@ -40,7 +40,7 @@ impl Validator for ReplHelper {
 }
 impl Helper for ReplHelper {}
 
-pub fn start() -> anyhow::Result<()> {
+pub async fn start() -> anyhow::Result<()> {
     let commands = vec!["get-something".into(), "do-something".into(), "exit".into(), "help".into()];
     let helper = ReplHelper { commands };
     let mut rl = Editor::new()?;
@@ -56,7 +56,7 @@ pub fn start() -> anyhow::Result<()> {
         match readline {
             Ok(line) => {
                 let _ = rl.add_history_entry(line.as_str());
-                if let Err(e) = handle_input(line) {
+                if let Err(e) = handle_input(line).await {
                     eprintln!("Error: {e}");
                 }
             }
@@ -69,7 +69,7 @@ pub fn start() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn handle_input(line: String) -> anyhow::Result<()> {
+async fn handle_input(line: String) -> anyhow::Result<()> {
     let args = shell_words::split(&line)?;
     if args.is_empty() {
         return Ok(());
@@ -87,7 +87,7 @@ fn handle_input(line: String) -> anyhow::Result<()> {
     match crate::cli::ReplCli::try_parse_from(std::iter::once("repl").chain(args.iter().map(String::as_str))) {
         Ok(parsed) => {
             if let Some(cmd) = parsed.command {
-                crate::cli::handle_command(cmd)?;
+                crate::cli::handle_command(cmd).await?;
             }
         }
         Err(e) => {
