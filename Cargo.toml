@@ -11,7 +11,7 @@ anyhow = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }
-space-traders-sdk = { path = "/Users/collindietz/code/space-traders/space-traders-sdk" }
+space-traders-sdk = { path = "./lib/space-traders-sdk" }
 dirs = "5.0"
 rpassword = "7.2"
 directories = "6.0.0"

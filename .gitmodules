@@ -1,0 +1,3 @@
+[submodule "lib/space-traders-sdk"]
+	path = lib/space-traders-sdk
+	url = https://github.com/CollinDietz/space-traders-sdk
