@@ -8,9 +8,8 @@ use rustyline::hint::Hinter;
 use rustyline::validate::{ValidationContext, ValidationResult, Validator};
 use rustyline::{error::ReadlineError, Editor};
 use rustyline::{Context, Helper};
-use space_traders_sdk::sdk::Sdk;
 
-use crate::config::Config;
+use crate::Application;
 
 pub struct ReplHelper {
     pub commands: Vec<String>,
@@ -64,7 +63,7 @@ fn history_path() -> PathBuf {
     path
 }
 
-pub async fn start(sdk: &mut Sdk, config: &mut Config) -> anyhow::Result<()> {
+pub async fn start(application: &mut Application) -> anyhow::Result<()> {
     let mut commands = crate::cli::ReplCli::command()
         .get_subcommands()
         .map(|sc| sc.get_name().to_string())
@@ -88,7 +87,7 @@ pub async fn start(sdk: &mut Sdk, config: &mut Config) -> anyhow::Result<()> {
         match readline {
             Ok(line) => {
                 let _ = rl.add_history_entry(line.as_str());
-                match handle_input(sdk, config, line).await {
+                match handle_input(application, line).await {
                     Ok(true) => break, // exit command
                     Ok(false) => {}    // continue REPL
                     Err(e) => eprintln!("Error: {e}"),
@@ -104,7 +103,7 @@ pub async fn start(sdk: &mut Sdk, config: &mut Config) -> anyhow::Result<()> {
 }
 
 /// Returns Ok(true) if the user typed "exit", otherwise Ok(false)
-async fn handle_input(sdk: &mut Sdk, config: &mut Config, line: String) -> anyhow::Result<bool> {
+async fn handle_input(application: &mut Application, line: String) -> anyhow::Result<bool> {
     let args = shell_words::split(&line)?;
     if args.is_empty() {
         return Ok(false);
@@ -124,7 +123,7 @@ async fn handle_input(sdk: &mut Sdk, config: &mut Config, line: String) -> anyho
     ) {
         Ok(parsed) => {
             if let Some(cmd) = parsed.command {
-                crate::cli::handle_command(cmd, sdk, config).await?;
+                crate::cli::handle_command(cmd, application).await?;
             }
         }
         Err(e) => {
