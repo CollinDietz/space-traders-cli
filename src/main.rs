@@ -29,12 +29,16 @@ async fn main() -> anyhow::Result<()> {
         config.save()?;
     }
 
-    let sdk = Sdk::new(config.account_token.clone());
+    let mut sdk = Sdk::new(config.account_token.clone());
+
+    config.agents.iter().for_each(|f| {
+        sdk.add_agent_token(f.id.clone(), f.token.clone());
+    });
 
     let cli = Cli::parse();
     match cli.command {
-        Some(cmd) => cli::handle_command(cmd, &sdk, &mut config).await?,
-        None => repl::start(&sdk, &mut config).await?,
+        Some(cmd) => cli::handle_command(cmd, &mut sdk, &mut config).await?,
+        None => repl::start(&mut sdk, &mut config).await?,
     }
     Ok(())
 }

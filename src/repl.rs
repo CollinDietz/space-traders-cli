@@ -1,4 +1,7 @@
+use std::path::PathBuf;
+
 use clap::{CommandFactory, Parser};
+use directories::ProjectDirs;
 use rustyline::completion::{Completer, Pair};
 use rustyline::highlight::Highlighter;
 use rustyline::hint::Hinter;
@@ -8,8 +11,6 @@ use rustyline::{Context, Helper};
 use space_traders_sdk::sdk::Sdk;
 
 use crate::config::Config;
-
-const HISTORY_PATH: &str = ".mytool_history";
 
 pub struct ReplHelper {
     pub commands: Vec<String>,
@@ -35,6 +36,7 @@ impl Completer for ReplHelper {
         Ok((0, completions))
     }
 }
+
 impl Hinter for ReplHelper {
     type Hint = String;
     fn hint(&self, _line: &str, _pos: usize, _ctx: &Context<'_>) -> Option<String> {
@@ -49,7 +51,20 @@ impl Validator for ReplHelper {
 }
 impl Helper for ReplHelper {}
 
-pub async fn start(sdk: &Sdk, config: &mut Config) -> anyhow::Result<()> {
+fn history_path() -> PathBuf {
+    let path = ProjectDirs::from("com", "CollinDietz", "space-traders-cli")
+        .expect("No valid home directory found")
+        .config_dir()
+        .join("history.txt");
+
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).expect("Failed to create config directory");
+    }
+
+    path
+}
+
+pub async fn start(sdk: &mut Sdk, config: &mut Config) -> anyhow::Result<()> {
     let mut commands = crate::cli::ReplCli::command()
         .get_subcommands()
         .map(|sc| sc.get_name().to_string())
@@ -58,7 +73,11 @@ pub async fn start(sdk: &Sdk, config: &mut Config) -> anyhow::Result<()> {
     let helper = ReplHelper { commands };
     let mut rl = Editor::new()?;
     rl.set_helper(Some(helper));
-    if rl.load_history(HISTORY_PATH).is_err() {
+
+    let history_file = history_path();
+    if history_file.exists() {
+        rl.load_history(&history_file)?;
+    } else {
         println!("(No previous history)");
     }
 
@@ -69,8 +88,10 @@ pub async fn start(sdk: &Sdk, config: &mut Config) -> anyhow::Result<()> {
         match readline {
             Ok(line) => {
                 let _ = rl.add_history_entry(line.as_str());
-                if let Err(e) = handle_input(sdk, config, line).await {
-                    eprintln!("Error: {e}");
+                match handle_input(sdk, config, line).await {
+                    Ok(true) => break, // exit command
+                    Ok(false) => {}    // continue REPL
+                    Err(e) => eprintln!("Error: {e}"),
                 }
             }
             Err(ReadlineError::Interrupted) | Err(ReadlineError::Eof) => break,
@@ -78,23 +99,24 @@ pub async fn start(sdk: &Sdk, config: &mut Config) -> anyhow::Result<()> {
         }
     }
 
-    rl.save_history(HISTORY_PATH)?;
+    rl.save_history(&history_file)?;
     Ok(())
 }
 
-async fn handle_input(sdk: &Sdk, config: &mut Config, line: String) -> anyhow::Result<()> {
+/// Returns Ok(true) if the user typed "exit", otherwise Ok(false)
+async fn handle_input(sdk: &mut Sdk, config: &mut Config, line: String) -> anyhow::Result<bool> {
     let args = shell_words::split(&line)?;
     if args.is_empty() {
-        return Ok(());
+        return Ok(false);
     }
 
     if args[0] == "exit" {
-        std::process::exit(0);
+        return Ok(true);
     } else if args[0] == "help" {
         println!("Available commands:");
         crate::cli::ReplCli::command().print_help()?;
         println!();
-        return Ok(());
+        return Ok(false);
     }
 
     match crate::cli::ReplCli::try_parse_from(
@@ -110,5 +132,5 @@ async fn handle_input(sdk: &Sdk, config: &mut Config, line: String) -> anyhow::R
         }
     }
 
-    Ok(())
+    Ok(false)
 }

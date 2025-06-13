@@ -80,6 +80,10 @@ pub enum Commands {
     },
     /// List agents
     ListAgents,
+    GetMyAgent {
+        #[arg(short, long)]
+        callsign: String,
+    },
 }
 
 #[derive(Parser, Debug)]
@@ -90,7 +94,7 @@ pub struct ReplCli {
 }
 
 async fn handle_register(
-    sdk: &Sdk,
+    sdk: &mut Sdk,
     config: &mut Config,
     callsign: String,
     faction: FactionArg,
@@ -117,7 +121,11 @@ async fn handle_register(
     }
 }
 
-pub async fn handle_command(cmd: Commands, sdk: &Sdk, config: &mut Config) -> anyhow::Result<()> {
+pub async fn handle_command(
+    cmd: Commands,
+    sdk: &mut Sdk,
+    config: &mut Config,
+) -> anyhow::Result<()> {
     match cmd {
         Commands::GetSomething { id } => {
             let result = format!(r#"{{"status":"ok","id":"{}"}}"#, id);
@@ -133,6 +141,14 @@ pub async fn handle_command(cmd: Commands, sdk: &Sdk, config: &mut Config) -> an
         Commands::ListAgents => {
             config.agents.iter().for_each(|f| println!("{}", f.id));
         }
+        Commands::GetMyAgent { callsign } => match sdk.get_agent(callsign).await {
+            Ok(agent) => {
+                println!("{:?}", agent);
+            }
+            Err(e) => {
+                println!("Error: {:?}", e);
+            }
+        },
     }
     Ok(())
 }
