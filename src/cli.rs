@@ -1,10 +1,7 @@
 use clap::{Parser, Subcommand, ValueEnum};
-use space_traders_sdk::{
-    faction::Factions,
-    sdk::{login::RegistrationRequest, Sdk},
-};
+use space_traders_sdk::{account::RegistrationRequest, faction::Factions};
 
-use crate::config::{Agent, Config};
+use crate::Application;
 
 #[derive(Debug, Clone, ValueEnum)]
 #[clap(rename_all = "kebab_case")]
@@ -58,16 +55,6 @@ impl From<FactionArg> for Factions {
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
-    /// Example command
-    GetSomething {
-        #[arg(short, long)]
-        id: String,
-    },
-    /// Example command
-    DoSomething {
-        #[arg(short, long)]
-        force: bool,
-    },
     /// Register a new agent
     Register {
         /// Callsign of the agent
@@ -94,8 +81,7 @@ pub struct ReplCli {
 }
 
 async fn handle_register(
-    sdk: &mut Sdk,
-    config: &mut Config,
+    application: &mut Application,
     callsign: String,
     faction: FactionArg,
 ) -> anyhow::Result<()> {
@@ -104,49 +90,41 @@ async fn handle_register(
         faction: Factions::from(faction),
     };
 
-    match sdk.register(request).await {
-        Ok(login_data) => {
-            println!("{:?}", login_data);
-            config.agents.push(Agent {
-                id: login_data.agent.symbol.clone(),
-                token: login_data.token,
-            });
-            config.save()?;
+    match application.account.register_agent(request).await {
+        Ok(agent) => {
+            // application.config.agents.push( Agent { id: agent.data.symbol, token: "".into() });
+            application.agents.push(agent);
+            // application.config.save()?;
             Ok(())
         }
         Err(e) => {
             println!("Error: {:?}", e);
-            Err(e.into())
+            Err(anyhow::anyhow!("{:?}", e))
         }
     }
 }
 
-pub async fn handle_command(
-    cmd: Commands,
-    sdk: &mut Sdk,
-    config: &mut Config,
-) -> anyhow::Result<()> {
+pub async fn handle_command(cmd: Commands, application: &mut Application) -> anyhow::Result<()> {
     match cmd {
-        Commands::GetSomething { id } => {
-            let result = format!(r#"{{"status":"ok","id":"{}"}}"#, id);
-            crate::utils::print_json_pretty(&result);
-        }
-        Commands::DoSomething { force } => {
-            let result = serde_json::json!({ "done": true, "forced": force });
-            crate::utils::print_json_value(&result);
-        }
         Commands::Register { callsign, faction } => {
-            handle_register(sdk, config, callsign, faction).await?;
+            handle_register(application, callsign, faction).await?;
         }
         Commands::ListAgents => {
-            config.agents.iter().for_each(|f| println!("{}", f.id));
+            application
+                .agents
+                .iter()
+                .for_each(|f| println!("{}", f.data.symbol));
         }
-        Commands::GetMyAgent { callsign } => match sdk.get_agent(callsign).await {
-            Ok(agent) => {
+        Commands::GetMyAgent { callsign } => match application
+            .agents
+            .iter()
+            .find(|agent| agent.data.symbol == callsign)
+        {
+            Some(agent) => {
                 println!("{:?}", agent);
             }
-            Err(e) => {
-                println!("Error: {:?}", e);
+            None => {
+                println!("No known agent with that callsign");
             }
         },
     }
