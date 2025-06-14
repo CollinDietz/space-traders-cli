@@ -1,4 +1,5 @@
 use clap::Subcommand;
+use space_traders_sdk::contract::ContractData;
 
 use crate::Application;
 
@@ -19,6 +20,57 @@ pub enum ContractCommand {
     },
 }
 
+fn display_contract(contract: &ContractData) {
+    println!("");
+    println!("Contract ID: {}", contract.id);
+    println!("------------------------------");
+    println!(
+        "Type: {}",
+        serde_json::to_string(&contract.contract_type).unwrap()
+    );
+    println!(
+        "Faction: {}",
+        serde_json::to_string(&contract.faction).unwrap()
+    );
+    println!("Terms:");
+    println!("  Deadline: {}", contract.terms.deadline);
+    println!(
+        "  Payment: {} up front, {} on completion",
+        contract.terms.payment.on_accepted, contract.terms.payment.on_fulfilled
+    );
+    println!("  Deliverables:");
+    if let Some(deliverables) = &contract.terms.deliver {
+        for deliverable in deliverables {
+            println!(
+                "    {} of {} {} to {}",
+                deliverable.units_fulfilled,
+                deliverable.units_required,
+                serde_json::to_string(&deliverable.trade_symbol).unwrap(),
+                serde_json::to_string(&deliverable.destination_symbol).unwrap()
+            );
+        }
+    } else {
+        println!("    None");
+    }
+    println!("Accepted: {}", if contract.accepted { "yes" } else { "no" });
+    println!(
+        "Fulfilled: {}",
+        if contract.fulfilled { "yes" } else { "no" }
+    );
+    println!();
+}
+
+fn display_contract_short(contract: &ContractData) {
+    println!(
+        "ID: {} | Type: {} | Faction: {} | Accepted: {} | Fulfilled: {}",
+        contract.id,
+        serde_json::to_string(&contract.contract_type).unwrap(),
+        serde_json::to_string(&contract.faction).unwrap(),
+        if contract.accepted { "yes" } else { "no" },
+        if contract.fulfilled { "yes" } else { "no" }
+    );
+}
+
 impl ContractCommand {
     pub async fn handle(
         &self,
@@ -28,16 +80,16 @@ impl ContractCommand {
         match self {
             ContractCommand::List => match application.agents.get(&callsign) {
                 Some(agent) => {
-                    agent.list_contracts().for_each(|f| println!("{}", f));
+                    agent
+                        .contracts()
+                        .for_each(|f| display_contract_short(&f.1.data));
                 }
                 None => {
                     println!("No known agent with that callsign");
                 }
             },
             ContractCommand::Info { id } => match application.agents.get_mut(&callsign) {
-                Some(agent) => {
-                    println!("{:?}", agent.edit_contract(&id).data);
-                }
+                Some(agent) => display_contract(&agent.edit_contract(&id).data),
                 None => {
                     println!("No known agent with that callsign");
                 }
