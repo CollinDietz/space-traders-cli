@@ -2,7 +2,6 @@ use clap::Subcommand;
 use space_traders_sdk::agent::AgentData;
 
 use crate::Application;
-use std::fmt;
 
 #[derive(Subcommand, Debug)]
 pub enum AgentCommand {

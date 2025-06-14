@@ -3,7 +3,7 @@ use clap::{Parser, Subcommand};
 use crate::{
     cli::{
         account_command::AccountCommand, agent_command::AgentCommand,
-        contract_command::ContractCommand,
+        contract_command::ContractCommand, system_command::SystemCommand,
     },
     Application,
 };
@@ -11,6 +11,7 @@ use crate::{
 mod account_command;
 mod agent_command;
 mod contract_command;
+mod system_command;
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
@@ -32,6 +33,12 @@ pub enum Commands {
         #[command(subcommand)]
         command: ContractCommand,
     },
+    System {
+        #[arg(short, long)]
+        system: String,
+        #[command(subcommand)]
+        command: SystemCommand,
+    },
 }
 
 #[derive(Parser, Debug)]
@@ -46,5 +53,6 @@ pub async fn handle_command(cmd: Commands, application: &mut Application) -> any
         Commands::Account { command } => command.handle(application).await,
         Commands::Agent { callsign, command } => command.handle(application, callsign).await,
         Commands::Contract { callsign, command } => command.handle(application, callsign).await,
+        Commands::System { system, command } => command.handle(application, system).await,
     }
 }

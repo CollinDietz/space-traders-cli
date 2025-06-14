@@ -22,6 +22,7 @@ use std::io::{self, Write};
 
 pub struct Application {
     pub config: Config,
+    pub client: Arc<SpaceTradersClient>,
     pub account: Account,
     pub agents: HashMap<String, Agent>,
 }
@@ -53,7 +54,8 @@ async fn main() -> anyhow::Result<()> {
 
     let mut application = Application {
         account: Account::new(client.clone()),
-        config: config,
+        config,
+        client,
         agents,
     };
 
