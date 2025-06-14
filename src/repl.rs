@@ -64,10 +64,33 @@ fn history_path() -> PathBuf {
 }
 
 pub async fn start(application: &mut Application) -> anyhow::Result<()> {
-    let mut commands = crate::cli::ReplCli::command()
-        .get_subcommands()
-        .map(|sc| sc.get_name().to_string())
-        .collect::<Vec<_>>();
+    fn collect_command_names(cmd: &clap::Command, prefix: String, names: &mut Vec<String>) {
+        // Collect flags/options for this command
+        for opt in cmd.get_opts() {
+            let flag = if let Some(short) = opt.get_short() {
+                format!("{} -{}", prefix, short)
+            } else if let Some(long) = opt.get_long() {
+                format!("{} --{}", prefix, long)
+            } else {
+                continue;
+            };
+            names.push(flag.trim().to_string());
+        }
+        // Collect subcommands recursively
+        for sub in cmd.get_subcommands() {
+            let name = if prefix.is_empty() {
+                sub.get_name().to_string()
+            } else {
+                format!("{} {}", prefix, sub.get_name())
+            };
+            names.push(name.clone());
+            collect_command_names(sub, name, names);
+        }
+    }
+
+    let mut commands = Vec::new();
+    let root_cmd = crate::cli::ReplCli::command();
+    collect_command_names(&root_cmd, String::new(), &mut commands);
     commands.extend(["exit".into(), "help".into()]);
     let helper = ReplHelper { commands };
     let mut rl = Editor::new()?;

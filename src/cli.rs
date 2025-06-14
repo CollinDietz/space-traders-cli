@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use space_traders_sdk::{account::RegistrationRequest, faction::Factions};
 
-use crate::Application;
+use crate::{config::Agent, Application};
 
 #[derive(Debug, Clone, ValueEnum)]
 #[clap(rename_all = "kebab_case")]
@@ -55,21 +55,40 @@ impl From<FactionArg> for Factions {
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
+    /// Account level commands
+    Account {
+        #[command(subcommand)]
+        command: AccountCommand,
+    },
+    /// Agent level commands
+    Agent {
+        #[command(subcommand)]
+        command: AgentCommand,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum AgentCommand {
+    /// List agents
+    ListAgents,
+    /// Get info about a specific agent
+    GetMyAgent {
+        #[arg(short, long)]
+        callsign: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum AccountCommand {
     /// Register a new agent
     Register {
         /// Callsign of the agent
         #[arg(short, long)]
         callsign: String,
 
-        ///Faction of the agent
+        /// Faction of the agent
         #[arg(short, long)]
         faction: FactionArg,
-    },
-    /// List agents
-    ListAgents,
-    GetMyAgent {
-        #[arg(short, long)]
-        callsign: String,
     },
 }
 
@@ -92,9 +111,13 @@ async fn handle_register(
 
     match application.account.register_agent(request).await {
         Ok(agent) => {
-            // application.config.agents.push( Agent { id: agent.data.symbol, token: "".into() });
-            application.agents.push(agent);
-            // application.config.save()?;
+            application.config.agents.push(Agent {
+                id: agent.data.symbol.clone(),
+                token: agent.get_token().unwrap().to_string(),
+            });
+            application.agents.insert(agent.data.symbol.clone(), agent);
+            application.config.save()?;
+            println!("Successfully registered agent {}", callsign);
             Ok(())
         }
         Err(e) => {
@@ -104,29 +127,50 @@ async fn handle_register(
     }
 }
 
-pub async fn handle_command(cmd: Commands, application: &mut Application) -> anyhow::Result<()> {
+pub async fn handle_account_command(
+    cmd: AccountCommand,
+    application: &mut Application,
+) -> anyhow::Result<()> {
     match cmd {
-        Commands::Register { callsign, faction } => {
-            handle_register(application, callsign, faction).await?;
+        AccountCommand::Register { callsign, faction } => {
+            handle_register(application, callsign, faction).await?
         }
-        Commands::ListAgents => {
-            application
-                .agents
-                .iter()
-                .for_each(|f| println!("{}", f.data.symbol));
-        }
-        Commands::GetMyAgent { callsign } => match application
+    }
+
+    Ok(())
+}
+
+pub async fn handle_agent_command(
+    cmd: AgentCommand,
+    application: &mut Application,
+) -> anyhow::Result<()> {
+    match cmd {
+        AgentCommand::ListAgents => application
             .agents
             .iter()
-            .find(|agent| agent.data.symbol == callsign)
-        {
-            Some(agent) => {
-                println!("{:?}", agent);
+            .for_each(|(callsign, _)| println!("{}", callsign)),
+        AgentCommand::GetMyAgent { callsign } => {
+            match application
+                .agents
+                .iter()
+                .find(|(agent_callsign, _)| **agent_callsign == callsign)
+            {
+                Some((_, agent)) => {
+                    println!("{:?}", agent.data);
+                }
+                None => {
+                    println!("No known agent with that callsign");
+                }
             }
-            None => {
-                println!("No known agent with that callsign");
-            }
-        },
+        }
     }
+
     Ok(())
+}
+
+pub async fn handle_command(cmd: Commands, application: &mut Application) -> anyhow::Result<()> {
+    match cmd {
+        Commands::Account { command } => handle_account_command(command, application).await,
+        Commands::Agent { command } => handle_agent_command(command, application).await,
+    }
 }
