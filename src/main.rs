@@ -18,6 +18,7 @@ struct Cli {
 }
 
 use rpassword::prompt_password;
+use std::io::{self, Write};
 
 pub struct Application {
     pub config: Config,
@@ -38,6 +39,8 @@ async fn main() -> anyhow::Result<()> {
 
     let client = Arc::new(SpaceTradersClient::new(Some(config.account_token.clone())));
 
+    print!("Loading details for known agents...");
+    io::stdout().flush().unwrap();
     let agent_futures = config.agents.iter().map(|agent| {
         let client = Arc::new(SpaceTradersClient::clone_with_token(&client, &agent.token));
         let id = agent.id.clone();
@@ -46,6 +49,7 @@ async fn main() -> anyhow::Result<()> {
 
     let agents_vec = futures::future::join_all(agent_futures).await;
     let agents: HashMap<String, Agent> = agents_vec.into_iter().collect();
+    println!("done");
 
     let mut application = Application {
         account: Account::new(client.clone()),

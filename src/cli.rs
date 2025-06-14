@@ -62,20 +62,23 @@ pub enum Commands {
     },
     /// Agent level commands
     Agent {
+        #[arg(short, long)]
+        callsign: String,
         #[command(subcommand)]
         command: AgentCommand,
+    },
+    Contract {
+        #[arg(short, long)]
+        callsign: String,
+        #[command(subcommand)]
+        command: ContractCommand,
     },
 }
 
 #[derive(Subcommand, Debug)]
 pub enum AgentCommand {
-    /// List agents
-    ListAgents,
-    /// Get info about a specific agent
-    GetMyAgent {
-        #[arg(short, long)]
-        callsign: String,
-    },
+    /// Show information for a given agent
+    Info,
 }
 
 #[derive(Subcommand, Debug)]
@@ -89,6 +92,25 @@ pub enum AccountCommand {
         /// Faction of the agent
         #[arg(short, long)]
         faction: FactionArg,
+    },
+    // List Agents registered to this account
+    ListAgents,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ContractCommand {
+    /// List known contracts for a given agent
+    List,
+    /// Show info for a contract for a given agent
+    Info {
+        /// The ID of the contract
+        #[arg(short, long)]
+        id: String,
+    },
+    Accept {
+        /// The ID of the contract
+        #[arg(short, long)]
+        id: String,
     },
 }
 
@@ -135,34 +157,72 @@ pub async fn handle_account_command(
         AccountCommand::Register { callsign, faction } => {
             handle_register(application, callsign, faction).await?
         }
+        AccountCommand::ListAgents => application
+            .agents
+            .iter()
+            .for_each(|(callsign, _)| println!("{}", callsign)),
     }
 
     Ok(())
 }
 
 pub async fn handle_agent_command(
+    callsign: String,
     cmd: AgentCommand,
     application: &mut Application,
 ) -> anyhow::Result<()> {
     match cmd {
-        AgentCommand::ListAgents => application
-            .agents
-            .iter()
-            .for_each(|(callsign, _)| println!("{}", callsign)),
-        AgentCommand::GetMyAgent { callsign } => {
-            match application
-                .agents
-                .iter()
-                .find(|(agent_callsign, _)| **agent_callsign == callsign)
-            {
-                Some((_, agent)) => {
-                    println!("{:?}", agent.data);
-                }
-                None => {
-                    println!("No known agent with that callsign");
+        AgentCommand::Info => match application.agents.get(&callsign) {
+            Some(agent) => {
+                println!("{:?}", agent.data);
+            }
+            None => {
+                println!("No known agent with that callsign");
+            }
+        },
+    }
+
+    Ok(())
+}
+
+pub async fn handle_contract_command(
+    callsign: String,
+    cmd: ContractCommand,
+    application: &mut Application,
+) -> anyhow::Result<()> {
+    match cmd {
+        ContractCommand::List => match application.agents.get(&callsign) {
+            Some(agent) => {
+                agent.list_contracts().for_each(|f| println!("{}", f));
+            }
+            None => {
+                println!("No known agent with that callsign");
+            }
+        },
+        ContractCommand::Info { id } => match application.agents.get_mut(&callsign) {
+            Some(agent) => {
+                println!("{:?}", agent.edit_contract(&id).data);
+            }
+            None => {
+                println!("No known agent with that callsign");
+            }
+        },
+        ContractCommand::Accept { id } => match application.agents.get_mut(&callsign) {
+            Some(agent) => {
+                let contract = agent.edit_contract(&id);
+                match contract.accept().await {
+                    Ok(_) => {
+                        println!("Contract accepted: {:?}", contract.data);
+                    }
+                    Err(e) => {
+                        println!("Failed to accept contract: {:?}", e);
+                    }
                 }
             }
-        }
+            None => {
+                println!("No known agent with that callsign");
+            }
+        },
     }
 
     Ok(())
@@ -171,6 +231,11 @@ pub async fn handle_agent_command(
 pub async fn handle_command(cmd: Commands, application: &mut Application) -> anyhow::Result<()> {
     match cmd {
         Commands::Account { command } => handle_account_command(command, application).await,
-        Commands::Agent { command } => handle_agent_command(command, application).await,
+        Commands::Agent { callsign, command } => {
+            handle_agent_command(callsign, command, application).await
+        }
+        Commands::Contract { callsign, command } => {
+            handle_contract_command(callsign, command, application).await
+        }
     }
 }
