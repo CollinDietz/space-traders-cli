@@ -1,6 +1,8 @@
+use std::{collections::HashMap, sync::Arc};
+
 use clap::Parser;
 use config::Config;
-use space_traders_sdk::{account::Account, agent::Agent};
+use space_traders_sdk::{account::Account, agent::Agent, space_traders_client::SpaceTradersClient};
 
 mod cli;
 mod config;
@@ -16,11 +18,13 @@ struct Cli {
 }
 
 use rpassword::prompt_password;
+use std::io::{self, Write};
 
 pub struct Application {
     pub config: Config,
+    pub client: Arc<SpaceTradersClient>,
     pub account: Account,
-    pub agents: Vec<Agent>,
+    pub agents: HashMap<String, Agent>,
 }
 
 #[tokio::main]
@@ -34,17 +38,26 @@ async fn main() -> anyhow::Result<()> {
         config.save()?;
     }
 
-    let mut application = Application {
-        account: Account::new(config.account_token.clone()),
-        config: config,
-        agents: vec![],
-    };
+    let client = Arc::new(SpaceTradersClient::new(Some(config.account_token.clone())));
 
-    // TODO: make this possible
-    // config.agents.iter().for_each(|f| {
-    //     application.agents.push(Agent::ne);
-    //     sdk.add_agent_token(f.id.clone(), f.token.clone());
-    // });
+    print!("Loading details for known agents...");
+    io::stdout().flush().unwrap();
+    let agent_futures = config.agents.iter().map(|agent| {
+        let client = Arc::new(SpaceTradersClient::clone_with_token(&client, &agent.token));
+        let id = agent.id.clone();
+        async move { (id, Agent::new(client).await.unwrap()) }
+    });
+
+    let agents_vec = futures::future::join_all(agent_futures).await;
+    let agents: HashMap<String, Agent> = agents_vec.into_iter().collect();
+    println!("done");
+
+    let mut application = Application {
+        account: Account::new(client.clone()),
+        config,
+        client,
+        agents,
+    };
 
     let cli = Cli::parse();
     match cli.command {
