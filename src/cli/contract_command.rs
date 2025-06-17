@@ -6,14 +6,25 @@ use crate::Application;
 #[derive(Subcommand, Debug)]
 pub enum ContractCommand {
     /// List known contracts for a given agent
-    List,
+    List {
+        /// Callsign of the agent
+        #[arg(short, long)]
+        callsign: String,
+    },
     /// Show info for a contract for a given agent
     Info {
+        /// Callsign of the agent
+        #[arg(short, long)]
+        callsign: String,
         /// The ID of the contract
         #[arg(short, long)]
         id: String,
     },
+    /// Accept a given contract
     Accept {
+        /// Callsign of the agent
+        #[arg(short, long)]
+        callsign: String,
         /// The ID of the contract
         #[arg(short, long)]
         id: String,
@@ -72,13 +83,9 @@ fn display_contract_short(contract: &ContractData) {
 }
 
 impl ContractCommand {
-    pub async fn handle(
-        &self,
-        application: &mut Application,
-        callsign: String,
-    ) -> anyhow::Result<()> {
+    pub async fn handle(&self, application: &mut Application) -> anyhow::Result<()> {
         match self {
-            ContractCommand::List => match application.agents.get(&callsign) {
+            ContractCommand::List { callsign } => match application.agents.get(callsign) {
                 Some(agent) => {
                     agent
                         .contracts()
@@ -88,28 +95,30 @@ impl ContractCommand {
                     println!("No known agent with that callsign");
                 }
             },
-            ContractCommand::Info { id } => match application.agents.get_mut(&callsign) {
+            ContractCommand::Info { callsign, id } => match application.agents.get_mut(callsign) {
                 Some(agent) => display_contract(&agent.edit_contract(&id).data),
                 None => {
                     println!("No known agent with that callsign");
                 }
             },
-            ContractCommand::Accept { id } => match application.agents.get_mut(&callsign) {
-                Some(agent) => {
-                    let contract = agent.edit_contract(&id);
-                    match contract.accept().await {
-                        Ok(_) => {
-                            println!("Contract accepted: {:?}", contract.data);
-                        }
-                        Err(e) => {
-                            println!("Failed to accept contract: {:?}", e);
+            ContractCommand::Accept { callsign, id } => {
+                match application.agents.get_mut(callsign) {
+                    Some(agent) => {
+                        let contract = agent.edit_contract(&id);
+                        match contract.accept().await {
+                            Ok(_) => {
+                                println!("Contract accepted: {:?}", contract.data);
+                            }
+                            Err(e) => {
+                                println!("Failed to accept contract: {:?}", e);
+                            }
                         }
                     }
+                    None => {
+                        println!("No known agent with that callsign");
+                    }
                 }
-                None => {
-                    println!("No known agent with that callsign");
-                }
-            },
+            }
         }
 
         Ok(())

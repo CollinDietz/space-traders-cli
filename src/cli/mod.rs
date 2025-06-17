@@ -22,20 +22,16 @@ pub enum Commands {
     },
     /// Agent level commands
     Agent {
-        #[arg(short, long)]
-        callsign: String,
         #[command(subcommand)]
         command: AgentCommand,
     },
+    /// Contract level commands
     Contract {
-        #[arg(short, long)]
-        callsign: String,
         #[command(subcommand)]
         command: ContractCommand,
     },
+    /// System level commands
     System {
-        #[arg(short, long)]
-        system: String,
         #[command(subcommand)]
         command: SystemCommand,
     },
@@ -51,8 +47,8 @@ pub struct ReplCli {
 pub async fn handle_command(cmd: Commands, application: &mut Application) -> anyhow::Result<()> {
     match cmd {
         Commands::Account { command } => command.handle(application).await,
-        Commands::Agent { callsign, command } => command.handle(application, callsign).await,
-        Commands::Contract { callsign, command } => command.handle(application, callsign).await,
-        Commands::System { system, command } => command.handle(application, system).await,
+        Commands::Agent { command } => command.handle(application).await,
+        Commands::Contract { command } => command.handle(application).await,
+        Commands::System { command } => command.handle(application).await,
     }
 }

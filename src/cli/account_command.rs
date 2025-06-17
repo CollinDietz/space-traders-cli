@@ -15,8 +15,6 @@ pub enum AccountCommand {
         #[arg(short, long)]
         faction: FactionArg,
     },
-    // List Agents registered to this account
-    ListAgents,
 }
 
 impl AccountCommand {
@@ -44,10 +42,6 @@ impl AccountCommand {
                     }
                 }
             }
-            AccountCommand::ListAgents => application
-                .agents
-                .iter()
-                .for_each(|(callsign, _)| println!("{}", callsign)),
         }
 
         Ok(())

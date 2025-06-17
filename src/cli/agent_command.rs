@@ -5,8 +5,14 @@ use crate::Application;
 
 #[derive(Subcommand, Debug)]
 pub enum AgentCommand {
+    // List known Agents
+    ListAgents,
     /// Show information for a given agent
-    Info,
+    Info {
+        /// Callsign of the agent
+        #[arg(short, long)]
+        callsign: String,
+    },
 }
 
 pub fn print_agent_data(agent_data: &AgentData) {
@@ -25,13 +31,13 @@ pub fn print_agent_data(agent_data: &AgentData) {
 }
 
 impl AgentCommand {
-    pub async fn handle(
-        &self,
-        application: &mut Application,
-        callsign: String,
-    ) -> anyhow::Result<()> {
+    pub async fn handle(&self, application: &mut Application) -> anyhow::Result<()> {
         match self {
-            AgentCommand::Info => match application.agents.get(&callsign) {
+            AgentCommand::ListAgents => application
+                .agents
+                .iter()
+                .for_each(|(callsign, _)| println!("{}", callsign)),
+            AgentCommand::Info { callsign } => match application.agents.get(callsign) {
                 Some(agent) => print_agent_data(&agent.data),
                 None => {
                     println!("No known agent with that callsign");

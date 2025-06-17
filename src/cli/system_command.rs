@@ -12,16 +12,40 @@ use clap::ValueEnum;
 
 #[derive(Subcommand, Debug)]
 pub enum SystemCommand {
-    /// Show information for a given agent
+    /// List Waypoints in a system with given trait or type
     ListWaypoints {
+        /// System Symbol
+        #[arg(short, long)]
+        system: String,
+        /// Type of waypoint to search for
         #[arg(long)]
         r#type: Option<WaypointTypeArg>,
+        /// Trait of waypoint to search for
         #[arg(long)]
         r#trait: Option<WaypointTraitSymbolArg>,
     },
+    /// Waypoint level commands
+    Waypoint {
+        /// System Symbol
+        #[arg(short, long)]
+        system: String,
+        /// Waypoint Symbol
+        #[arg(short, long)]
+        waypoint: String,
+        #[command(subcommand)]
+        command: WaypointCommand,
+    },
 }
 
-fn display_waypoint(waypoint: &WaypointData) {
+#[derive(Subcommand, Debug)]
+pub enum WaypointCommand {
+    /// Get shipyard info
+    Shipyard,
+    /// Get market info
+    Market,
+}
+
+fn _display_waypoint(waypoint: &WaypointData) {
     println!("Waypoint: {}", waypoint.symbol);
     println!("------------------------------");
     println!(
@@ -92,24 +116,24 @@ fn display_waypoint_short(waypoint: &WaypointData) {
 }
 
 impl SystemCommand {
-    pub async fn handle(
-        &self,
-        application: &mut Application,
-        symbol: String,
-    ) -> anyhow::Result<()> {
+    pub async fn handle(&self, _application: &mut Application) -> anyhow::Result<()> {
         match self {
-            SystemCommand::ListWaypoints { r#type, r#trait } => {
+            SystemCommand::ListWaypoints {
+                system,
+                r#type,
+                r#trait,
+            } => {
                 let type_converted = r#type.as_ref().map(|t| WaypointType::from(t.clone()));
                 let trait_converted = r#trait
                     .as_ref()
                     .map(|t| WaypointTraitSymbol::from(t.clone()));
-                match System::new(SpaceTradersClient::new(None).into(), &symbol)
+                match System::new(SpaceTradersClient::new(None).into(), system)
                     .list_waypoints(type_converted.clone(), trait_converted.clone())
                     .await
                 {
                     Ok(waypoints) => {
                         println!("");
-                        print!("Waypoints in system {}", symbol);
+                        print!("Waypoints in system {}", system);
                         if let Some(waypoint_type) = type_converted {
                             print!(
                                 ", with type {}",
@@ -131,6 +155,14 @@ impl SystemCommand {
                     Err(e) => eprintln!("Error listing waypoints: {}", e),
                 }
             }
+            SystemCommand::Waypoint {
+                system: _,
+                waypoint: _,
+                command,
+            } => match command {
+                WaypointCommand::Shipyard => todo!(),
+                WaypointCommand::Market => todo!(),
+            },
         }
 
         Ok(())
